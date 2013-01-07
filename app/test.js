@@ -225,7 +225,7 @@ function ComparePasswords(Expected, Got)
 		},
 		History: [ { Name: 'Title', Value: '', Date: 0 } ]
 	};
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -249,7 +249,7 @@ function ComparePasswords(Expected, Got)
 		},
 		History: [ { Name: 'Category', Value: '', Date: 0 } ]
 	};
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -273,7 +273,7 @@ function ComparePasswords(Expected, Got)
 		},
 		History: [ { Name: 'Notes', Value: '', Date: 0 } ]
 	};
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -297,7 +297,7 @@ function ComparePasswords(Expected, Got)
 		},
 		History: [ { Name: 'Password', Value: '', Date: 0 } ]
 	};
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -324,7 +324,7 @@ function ComparePasswords(Expected, Got)
 			{ Name: 'Password', Value: '1', Date: 10 }
 		]
 	};
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -348,7 +348,7 @@ function ComparePasswords(Expected, Got)
 		},
 		History: []
 	};
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -377,7 +377,7 @@ function ComparePasswords(Expected, Got)
 		]
 	};
 
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -426,7 +426,7 @@ function ComparePasswords(Expected, Got)
 		]
 	};
 
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -471,7 +471,7 @@ function ComparePasswords(Expected, Got)
 		]
 	};
 
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -518,7 +518,7 @@ function ComparePasswords(Expected, Got)
 		]
 	};
 
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -571,7 +571,7 @@ function ComparePasswords(Expected, Got)
 		]
 	};
 
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -621,7 +621,7 @@ function ComparePasswords(Expected, Got)
 		]
 	};
 
-	var Test = new CreatePassword();
+	var Test = new CreateSecret();
 	Test.TitleDate = 0;
 	Test.CategoryDate = 0;
 	Test.NotesDate = 0;
@@ -650,3 +650,57 @@ function ComparePasswords(Expected, Got)
 	ComparePasswords(Expected, Test);
 })();
 
+// UTF8 conversion
+(function()
+{
+	var Native = 'dog';
+	var UTF8 = 'dog';
+	var Converted = NativeToUTF8(Native);
+	if (Converted !== UTF8)
+		throw "Expected: " + UTF8 + ", got: " + Converted;
+})();
+
+(function()
+{
+	var UTF8 = 'dog';
+	var Native = 'dog';
+	var Converted = UTF8ToNative(UTF8);
+	if (Converted !== Native)
+		throw "Expected: " + Native + ", got: " + Converted;
+})();
+
+(function()
+{
+	var Native = '\u5B50\u4F9B';
+	var UTF8 = '\xE5\xAD\x90\xE4\xBE\x9B';
+	var Converted = NativeToUTF8(Native);
+	if (Converted !== UTF8)
+		throw "Expected: " + UTF8 + ", got: " + Converted;
+})();
+
+(function()
+{
+	var Native = '\u5B50\u4F9B';
+	var UTF8 = '\xE5\xAD\x90\xE4\xBE\x9B';
+	var Converted = UTF8ToNative(UTF8);
+	if (Converted !== Native)
+		throw 'Expected: ' + Native + ', got: ' + Converted;
+})();
+
+// Encryption, decryption
+(function()
+{
+	var Salt = [588169339, -600533108];
+	var SecretBytes = sjcl.codec.utf8String.toBits('join');
+	var Key = sjcl.misc.pbkdf2(SecretBytes, Salt, 1000).slice(0, 8);
+	var Cipher = new sjcl.cipher.aes(Key);
+	var IV = [73868294, 1634350578, 1055428797, -1313435180];
+	var PlainText = sjcl.codec.utf8String.toBits('plaintext');
+	var CipherText = sjcl.mode.ccm.encrypt(Cipher, PlainText, IV);
+
+	var PreResult = sjcl.mode.ccm.decrypt(Cipher, CipherText, IV);
+	var Result = sjcl.codec.utf8String.fromBits(PreResult);
+
+	if (Result !== 'plaintext')
+		throw 'PlainText: ' + Result + ', expected: plaintext';
+})();

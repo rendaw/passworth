@@ -1,3 +1,6 @@
 .Input a { display: inline-block; width: 40px; height: 40px; border: 1px solid black; }
 input { color: blue; }
 input.Error { color: red; }
+
+div { margin: 4px; padding: 4px; border: 1px solid black; }
+Hidden { display: none; }

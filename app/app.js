@@ -3,15 +3,14 @@
 // Elements only have classes to disambiguate themselves from other elements of the same type in the div/block
 
 // Auxiliary
-var SerializeStorage = function(Input)
-{
-	var Version = 0;
-	return JSON.stringify({Version: Version, Data: Input});
+function NativeToUTF8(Input) 
+{ 
+	return unescape(encodeURIComponent(Input)); 
 }
 
-var DeserializeStorage = function(Input)
-{
-	return JSON.parse(Input);
+function UTF8ToNative(Input) 
+{ 
+	return decodeURIComponent(escape(Input)); 
 }
 
 function CreateSortedArray(KeyAccessor)
@@ -73,7 +72,7 @@ CreateSortedArray.prototype = {
 	}
 };
 
-function CreatePassword()
+function CreateSecret()
 {
 	var Now = new Date();
 	this.ID = Now.getFullYear() + '-' + Now.getTime();
@@ -88,7 +87,7 @@ function CreatePassword()
 	};
 	this.History = [];
 }
-CreatePassword.prototype = {
+CreateSecret.prototype = {
 	Modify: function(Modifications)
 	{
 		for (var Name in Modifications)
@@ -122,17 +121,17 @@ CreatePassword.prototype = {
 			}
 		}
 	},
-	Merge: function(Password)
+	Merge: function(Secret)
 	{
 		// Merge the history
 		var HistoryMatches = true;
 		var NewHistory = [];
 		var Index = 0;
 		var MergeIndex = 0;
-		while ((Index < this.History.length) && (MergeIndex < Password.History.length))
+		while ((Index < this.History.length) && (MergeIndex < Secret.History.length))
 		{
 			var Record = this.History[Index];
-			var MergeRecord = Password.History[MergeIndex];
+			var MergeRecord = Secret.History[MergeIndex];
 
 			if ((Record.Date != MergeRecord.Date) || 
 				(Record.Name != MergeRecord.Name) ||
@@ -193,35 +192,35 @@ CreatePassword.prototype = {
 				NewHistory.push(Record);
 			}
 		}
-		AppendRemainingHistory(Index, this, Password);
-		AppendRemainingHistory(MergeIndex, Password, this);
+		AppendRemainingHistory(Index, this, Secret);
+		AppendRemainingHistory(MergeIndex, Secret, this);
 
 		this.History = NewHistory;
 			
 		// Merge post-historic values
 		var Modifications = {};
 
-		if (this.Title != Password.Title)
+		if (this.Title != Secret.Title)
 		{
-			if (this.TitleDate < Password.TitleDate)
-				Modifications.Title = {Date: Password.TitleDate, Value: Password.Title};
-			else this.History.push({Name: 'Title', Value: Password.Title, Date: Password.TitleDate});
+			if (this.TitleDate < Secret.TitleDate)
+				Modifications.Title = {Date: Secret.TitleDate, Value: Secret.Title};
+			else this.History.push({Name: 'Title', Value: Secret.Title, Date: Secret.TitleDate});
 		}
-		if (this.Category != Password.Category)
+		if (this.Category != Secret.Category)
 		{
-			if (this.CategoryDate < Password.CategoryDate)
-				Modifications.Category = { Date: Password.CategoryDate, Value: Password.Category };
-			else this.History.push({Name: 'Category', Value: Password.Category, Date: Password.CategoryDate});
+			if (this.CategoryDate < Secret.CategoryDate)
+				Modifications.Category = { Date: Secret.CategoryDate, Value: Secret.Category };
+			else this.History.push({Name: 'Category', Value: Secret.Category, Date: Secret.CategoryDate});
 		}
-		if (this.Notes != Password.Notes)
+		if (this.Notes != Secret.Notes)
 		{
-			if (this.NotesDate < Password.NotesDate)
-				Modifications.Notes = { Value: Password.Notes, Date: Password.NotesDate };
-			else this.History.push({ Name: 'Notes', Value: Password.Notes, Date: Password.NotesDate });
+			if (this.NotesDate < Secret.NotesDate)
+				Modifications.Notes = { Value: Secret.Notes, Date: Secret.NotesDate };
+			else this.History.push({ Name: 'Notes', Value: Secret.Notes, Date: Secret.NotesDate });
 		}
-		for (var Name in Password.Present)
+		for (var Name in Secret.Present)
 		{
-			var MergeProperty = Password.Present[Name];
+			var MergeProperty = Secret.Present[Name];
 			if (!(Name in this.Present))
 				Modifications[Name] = { Value: MergeProperty.Value, Date: MergeProperty.Date };
 			else
@@ -240,35 +239,69 @@ CreatePassword.prototype = {
 	}
 };
 
+function GenerateKey(Secret, Salt)
+{
+	if (!Salt) Salt = sjcl.random.randomWords(2, 0);
+	var SecretBytes = sjcl.codec.utf8String.toBits(NativeToUTF8(Secret));
+	var Key = sjcl.misc.pbkdf2(SecretBytes, Salt, 1000).slice(0, 8);
+	return {
+		Salt: Salt,
+		Key: Key,
+		Cipher: new sjcl.cipher.aes(Key)
+	};
+}
 
-function CreateDatabase(Password)
+function CreateDatabase(Secret)
 {
 	this.Settings = {
-		Password: Password,
+		Secret: Secret,
 		MergeSettings: false,
-		ObscureUnfocusedPasswords: false
+		ObscureUnfocusedSecrets: true,
+		ShowDeleted: false
 	};
-	this.Passwords = {};
-	this.ViewTree = new CreateSortedArray(function(Element) { return Element.Title; });
+	this.Secrets = {};
+	this.ViewTree = new CreateSortedArray(function(Element) { return Element.Title + Element.ID; });
+	this._Key = GenerateKey(Secret);
 }
 CreateDatabase.prototype = {
-	Serialize: function(PasswordData, Password)
+	Serialize: function(SecretData, Key)
 	{
+		// Encrypt
+		var IV = sjcl.random.randomWords(4, 0);
+		var PlainText = sjcl.codec.utf8String.toBits(NativeToUTF8(JSON.stringify(SecretData)));
+		var CipherText = sjcl.mode.ccm.encrypt(Key.Cipher, PlainText, IV);
 		return JSON.stringify({
 			Version: 0,
-			Data: CryptoJS.AES.encrypt(JSON.stringify(PasswordData, Password))
+			Data: { 
+				CipherText: sjcl.codec.base64.fromBits(CipherText, false),
+				IV: sjcl.codec.base64.fromBits(IV, false),
+				Salt: sjcl.codec.base64.fromBits(Key.Salt, false)
+			}
 		});
 	},
-	Deserialize: function(StorageData, Password)
+	Deserialize: function(StorageData, Secret)
 	{
-		var Prelim = JSON.parse(StorageData);
-		if (!Prelim || !('Version' in Prelim) || !('Data' in Prelim)) return null;
-		// Handle version back-compatibility here
-		return JSON.parse(CryptoJS.AES.decrypt(Prelim, Password));
+		try 
+		{
+			var Outer = JSON.parse(StorageData);
+			if (!Outer || !('Version' in Outer) || !('Data' in Outer)) return null;
+			// (Handle version back-compatibility here)
+			var Key = GenerateKey(Secret, sjcl.codec.base64.toBits(Outer.Data.Salt));
+			var Decrypted = sjcl.mode.ccm.decrypt(
+				Key.Cipher, 
+				sjcl.codec.base64.toBits(Outer.Data.CipherText),
+				sjcl.codec.base64.toBits(Outer.Data.IV));
+			if (!Decrypted) return null;
+			return UTF8ToNative(sjcl.codec.utf8String.fromBits(Decrypted));
+		}
+		catch (Exception)
+		{
+			return null;
+		}
 	},
 	Store: function()
 	{
-		window['localStorage'].setItem('passworth', Serialize({ Settings: this.Settings, Passwords: this.Passwords}, this.Settings.Password));
+		window['localStorage'].setItem('passworth', this.Serialize({ Settings: this.Settings, Secrets: this.Secrets}, this._Key));
 	},
 	HasStoredData: function()
 	{
@@ -279,66 +312,83 @@ CreateDatabase.prototype = {
 		var LocalData = window['localStorage'].getItem('passworth');
 		var OldMergeSettings = this.Settings.MergeSettings;
 		this.Settings.MergeSettings = true;
-		this.Merge(LocalData, this.Settings.Password);
+		var Success = this.Merge(LocalData, this.Settings.Secret);
 		this.Settings.MergeSettings = OldMergeSettings;
+		return Success;
 	},
-	SetPassword: function(NewPassword)
+	SetSecret: function(NewSecret)
 	{
-		this.Settings.Password = NewPassword;
+		this.Settings.Secret = NewSecret;
+		this._RegenerateKey();
 		this.Store();
 	},
-	Merge: function(Data, Password)
+	Merge: function(Data, DataSecret)
 	{
-		var Result = Deserialize(Data, Password);
+		var ResultString = this.Deserialize(Data, DataSecret);
+		if (!ResultString) return false;
+		var Result = JSON.parse(ResultString);
 		if (this.Settings.MergeSettings)
 			this.Settings = Result.Settings;
-		for (var ID in Result.Passwords)
+		for (var ID in Result.Secrets)
 		{
-			var Modifications = {};
+			var Secret = Result.Secrets[ID];
 
-			if (ID in this.Passwords)
-				this.Passwords[ID].Merge(Results.Passwords[ID]);
-			else this.Passwords[ID] = Results.Passwords[ID];
+			var OldCategory = Secret.Category;
+			var OldTitle = Secret.Title;
 
-			this.UpdatePassword(Password, Modifications);
+			if (ID in this.Secrets)
+				this.Secrets[ID].Merge(Secret);
+			else this.Secrets[ID] = Secret;
+
+			this._DisplaySecret(Secret, OldCategory, OldTitle);
 		}
+		return true;
 	},
-	UpdatePassword: function(Password, Modifications)
+	_DisplaySecret: function(Secret, OldCategory, OldTitle)
 	{
-		this.Passwords[Password.ID] = Password;
+		this.Secrets[Secret.ID] = Secret;
 
 		// Remove the password from the tree if its sort data has changed
-		if (Password.Category && (('Category' in Modifications) || ('Title' in Modifications)))
+		if (Secret.Category && ((Secret.Category != OldCategory) || (Secret.Title != OldTitle)))
 		{
-			var Category = this.ViewTree.Get(Password.Category);
-			Category.RemoveOne(Password);
-			if (Category.Elements.length == 0)
-				this.ViewTree.RemoveOneByKey(Password.Category);
+			var Category = this.ViewTree.Get(OldCategory);
+			if (Category)
+			{
+				Category.RemoveOneByKey(OldTitle);
+				if (Category.Elements.length == 0)
+					this.ViewTree.RemoveOneByKey(OldCategory);
+			}
 		}
-		else if (!Password.Category && ('Title' in Modifications))
+		else if (!Secret.Category && (Secret.Title != OldTitle))
 		{
-			this.ViewTree.RemoveOne(Password);
+			this.ViewTree.RemoveOneByKey(OldTitle);
 		}
-
-		// Apply the modifications
-		Password.Modify(Modifications);
 
 		// (Re)situate the password in the tree. 
-		if (Password.Category)
+		if (Secret.Category)
 		{
-			var Category = this.ViewTree.Get(Password.Category);
+			var Category = this.ViewTree.Get(Secret.Category);
 			if (!Category) 
 			{
-				Category = new CreateSortedArray(function(Element) { return Element.Title; });
-				Category.Title = Password.Category;
-				this.ViewTree.PlaceOneByKey(Category, Password.Category);
+				Category = new CreateSortedArray(this.ViewTree.Accessor);
+				Category.Title = Secret.Category;
+				Category.ID = '';
+				this.ViewTree.PlaceOneByKey(Category);
 			}
-			Category.PlaceOne(Password);
+			Category.PlaceOne(Secret);
 		}
 		else
 		{
-			this.ViewTree.PlaceOne(Password);
+			this.ViewTree.PlaceOne(Secret);
 		}
+	},
+	UpdateSecret: function(Secret, Modifications)
+	{
+		var OldCategory = Secret.Category;
+		var OldTitle = Secret.Title;
+		Secret.Modify(Modifications);
+		this._DisplaySecret(Secret, OldCategory, OldTitle);
+		this.Store();
 	}
 };
 
@@ -357,6 +407,7 @@ var Element =
 		Out.className = 'Expander';
 		var Expansion = document.createElement('div');
 		Expansion.className = 'Expansion Hidden';
+		Items.forEach(function(Item) { Expansion.appendChild(Item); });
 		var Button = this.Button(Label, {
 			Action: function()
 			{
@@ -617,6 +668,7 @@ var Page =
 // Pages
 function DetermineAndShowInitialPage()
 {
+	sjcl.random.startCollectors();
 	var MeetsRequirements = (function ()
 	{
 		try 
@@ -656,13 +708,13 @@ function ShowPage(Body)
 		document.getElementById('Focus').focus();
 }
 
-function ShowHistoryPage(Database, MainPageContext, Password)
+function ShowHistoryPage(Database, MainPageContext, Secret)
 {
 	MainPageContext.Clear();
 	MainPageContext.Navigation.appendChild(Element.Button('Back', {
 		Action: function()
 		{
-			ShowPasswordPage(Database, MainPageContext, Password);
+			ShowSecretPage(Database, MainPageContext, Secret);
 		}
 	}));
 
@@ -672,9 +724,9 @@ function ShowHistoryPage(Database, MainPageContext, Password)
 	var FirstRecordNode;
 	function AddHistoryItems()
 	{
-		for (; LastIndex < Password.History.length; LastIndex += 1)
+		for (; LastIndex < Secret.History.length; LastIndex += 1)
 		{
-			var Record = Password.History[LastIndex];
+			var Record = Secret.History[LastIndex];
 			var WrappedDate = new Date();
 			WrappedDate.setTime(Record.Date);
 			var RecordNode = Element.BodyRow([
@@ -683,7 +735,7 @@ function ShowHistoryPage(Database, MainPageContext, Password)
 				Element.BodyButton([Record.Name, ': ', Record.Value].join(), {
 					Action: function()
 					{
-						Database.UpdatePassword(Password, {Name: Record.Name, Value: Record.Value, Date: new Date().getTime()});
+						Database.UpdateSecret(Secret, {Name: Record.Name, Value: Record.Value, Date: new Date().getTime()});
 						AddHistoryItems(); // Add new history from update to the page
 					}
 				})
@@ -696,7 +748,7 @@ function ShowHistoryPage(Database, MainPageContext, Password)
 	}
 }
 
-function ShowPasswordPage(Database, MainPageContext, Password)
+function ShowSecretPage(Database, MainPageContext, Secret)
 {
 	var Modifications = {};
 
@@ -707,7 +759,7 @@ function ShowPasswordPage(Database, MainPageContext, Password)
 			return Element.Button('Confirm', {
 				Action: function()
 				{
-					Database.UpdatePassword(Password, {Name: 'Category', Value: 'Deleted', Date: newDate().getTime()});
+					Database.UpdateSecret(Secret, {Name: 'Category', Value: 'Deleted', Date: newDate().getTime()});
 					ShowMainPage(Database, MainPageContext);
 				}
 			});
@@ -721,30 +773,30 @@ function ShowPasswordPage(Database, MainPageContext, Password)
 				return Element.Button('Discard Changes', {
 					Action: function()
 					{
-						ShowHistoryPage(Database, MainPageContext, Password);
+						ShowHistoryPage(Database, MainPageContext, Secret);
 					}
 				});
 			}
-			ShowHistoryPage(Database, MainPageContext, Password);
+			ShowHistoryPage(Database, MainPageContext, Secret);
 			return null;
 		}
 	}));
 
-	MainPageContext.Body.appendChild(Element.BodyTitleEntry('Title', Password.Title, {
+	MainPageContext.Body.appendChild(Element.BodyTitleEntry('Title', Secret.Title, {
 		Action: function(Value) { Modifications.Title = {Value: Value, Date: new Date().getTime()}; }
 	}));
-	MainPageContext.Body.appendChild(Element.BodyEntry('Category', Password.Category, {
+	MainPageContext.Body.appendChild(Element.BodyEntry('Category', Secret.Category, {
 		Action: function(Value) { Modifications.Category = {Value: Value, Date: new Date().getTime()}; }
 	}));
-	MainPageContext.Body.appendChild(Element.BodyEntry('Notes', Password.Notes, {
+	MainPageContext.Body.appendChild(Element.BodyEntry('Notes', Secret.Notes, {
 		Action: function(Value) { Modifications.Notes = {Value: Value, Date: new Date().getTime()}; }
 	}));
 
-	for (var Name in Password.Present)
+	for (var Name in Secret.Present)
 	{
-		if (!Password.Present[Name].Value) continue;
-		MainPageContext.Body.appendChild(Element.BodyEntry(Name, Password.Present[Name], {
-			Action: function(Value) { Modifications[Password.Present[Name]] = { Value: Value, Date: new Date().getTime() }; }
+		if (!Secret.Present[Name].Value) continue;
+		MainPageContext.Body.appendChild(Element.BodyEntry(Name, Secret.Present[Name], {
+			Action: function(Value) { Modifications[Secret.Present[Name]] = { Value: Value, Date: new Date().getTime() }; }
 		}));
 	}
 
@@ -752,12 +804,12 @@ function ShowPasswordPage(Database, MainPageContext, Password)
 		Valid: function(Value)
 		{
 			if (!Value) return false;
-			if (Value in Password.Present) return false;
+			if (Value in Secret.Present) return false;
 			return true;
 		},
 		Action: function(Name)
 		{
-			Password.Present[Name] = { Value: '', Date: new Date().getTime() };
+			Secret.Present[Name] = { Value: '', Date: new Date().getTime() };
 			MainPageContext.Body.insertBefore(Element.BodyEntry(Name, '', {
 				Action: function(Value) { Modifications[Name] = { Value: Value, Date: new Date().getTime() }; }
 			}), AddValueButton);
@@ -770,7 +822,7 @@ function ShowPasswordPage(Database, MainPageContext, Password)
 		Element.Button('Save', {
 			Action: function()
 			{
-				Database.UpdatePassword(Password, Modifications);
+				Database.UpdateSecret(Secret, Modifications);
 				Modifications = {};
 			}
 		}),
@@ -818,38 +870,37 @@ function ShowMainPage(Database, MainPageContext)
 	MainPageContext.Navigation.appendChild(Element.Button('Create', {
 		Action: function() 
 		{ 
-			var NewPassword = new CreatePassword();
-			NewPassword.Title = 'New Password';
-			ShowPasswordPage(Database, MainPageContext, NewPassword); 
+			var NewSecret = new CreateSecret();
+			NewSecret.Title = 'New Secret';
+			ShowSecretPage(Database, MainPageContext, NewSecret); 
 		}
 	}));
 	MainPageContext.Navigation.appendChild(Element.Button('Export', {}));
 	MainPageContext.Navigation.appendChild(Element.Button('Import', {}));
 	MainPageContext.Navigation.appendChild(Element.Button('Settings', {}));
 
-	var Passwords = [];
+	var Secrets = [];
 	Database.ViewTree.Elements.forEach(function(TreeNode)
 	{
-		if ('ID' in TreeNode)
+		if (!('Elements' in TreeNode))
 		{
-			Passwords.push(Element.Button(TreeNode.Title, {
-				Action: function() { ShowPasswordPage(Database, MainPageContext, TreeNode); }
+			Secrets.push(Element.Button(TreeNode.Title, {
+				Action: function() { ShowSecretPage(Database, MainPageContext, TreeNode); }
 			}));
 		}
 		else
 		{
-			throw '1';
-			var CategoryPasswords = [];
+			var CategorySecrets = [];
 			TreeNode.Elements.forEach(function(TreeLeaf)
 			{
-				CategoryPasswords.push(Element.Button(TreeLeaf.Title, {
-					Action: function() { ShowPasswordPage(Database, MainPageContext, TreeLeaf); }
+				CategorySecrets.push(Element.Button(TreeLeaf.Title, {
+					Action: function() { ShowSecretPage(Database, MainPageContext, TreeLeaf); }
 				}));
 			});
-			Passwords.push(Element.Expander(TreeNode.Title, CategoryPasswords));
+			Secrets.push(Element.Expander(TreeNode.Title, CategorySecrets));
 		}
 	});
-	MainPageContext.Body.appendChild(Element.BodyRow([], Passwords));
+	MainPageContext.Body.appendChild(Element.BodyRow([], Secrets));
 };
 
 function ShowNotSupportedPage()
@@ -880,12 +931,6 @@ function ShowLoginPage()
 		Element.Login({
 			Action: function(Value)
 			{
-				if (LocalData.Version !== 0)
-				{
-					SetText(Error, 'Unrecognized database version.  Make sure the application is up-to-date.');
-					Error.style.display = '';
-					return;
-				}
 				var Database = new CreateDatabase(Value);
 				if (!Database.Restore())
 				{
