@@ -1,0 +1,56 @@
+3rd party libraries used:
+Stanford Javascript Crypto Library
+
+Password database file specification:
+JSON: OBJECT {
+	Version: INTEGER,
+	Data: BASE64 STRING
+}
+
+JSON string is in UTF8
+
+Version 1 Data:
+JSON: OBJECT {
+	IV: BASE64 STRING
+	Salt: BASE64 STRING
+	CipherText: BASE64 STRING
+}
+
+CipherText is generated as follows from PlainText and Password:
+1. PlainText JSON is in UTF8
+2. JSON is encrypted with AES, CCM mode, using
+	IV
+	Salt
+	Key generated from user's UTF8 password using Pbkdf2
+		HMAC-SHA256 
+		1000 iterations
+		Salt as first iteration salt
+		256-bit
+
+PlainText
+JSON: OBJECT {
+	Passwords: OBJECT {
+		ID: OBJECT {
+			Title: STRING
+			TitleDate: UNSIGNED INTEGER
+			Category: STRING
+			CategoryDate: UNSIGNED INTEGER
+			Notes: STRING
+			NotesDate: UNSIGNED INTEGER
+			Present: OBJECT {
+				Name: OBJECT {
+					Value: STRING
+					Date: UNSIGNED INTEGER
+				}...
+			}
+			History: ARRAY [
+				OBJECT {
+					Name: STRING
+					Value: STRING
+					Date: UNSIGNED INTEGER
+				}...
+			]
+		}...
+	]
+}
+
