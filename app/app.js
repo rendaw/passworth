@@ -256,7 +256,6 @@ function CreateDatabase(Secret)
 	this.Settings = {
 		Secret: Secret,
 		MergeSettings: false,
-		ObscureUnfocusedSecrets: true,
 		ShowDeleted: false
 	};
 	this.Secrets = {};
@@ -264,18 +263,20 @@ function CreateDatabase(Secret)
 	this._Key = GenerateKey(Secret);
 }
 CreateDatabase.prototype = {
-	Serialize: function(SecretData, Key)
+	Serialize: function()
 	{
 		// Encrypt
+		var SecretData = { Settings: this.Settings, Secrets: this.Secrets };
 		var IV = sjcl.random.randomWords(4, 0);
 		var PlainText = sjcl.codec.utf8String.toBits(NativeToUTF8(JSON.stringify(SecretData)));
-		var CipherText = sjcl.mode.ccm.encrypt(Key.Cipher, PlainText, IV);
+		var CipherText = sjcl.mode.ccm.encrypt(this._Key.Cipher, PlainText, IV);
 		return JSON.stringify({
+			Filetype: 'Passworth',
 			Version: 0,
 			Data: { 
 				CipherText: sjcl.codec.base64.fromBits(CipherText, false),
 				IV: sjcl.codec.base64.fromBits(IV, false),
-				Salt: sjcl.codec.base64.fromBits(Key.Salt, false)
+				Salt: sjcl.codec.base64.fromBits(this._Key.Salt, false)
 			}
 		});
 	},
@@ -301,7 +302,7 @@ CreateDatabase.prototype = {
 	},
 	Store: function()
 	{
-		window['localStorage'].setItem('passworth', this.Serialize({ Settings: this.Settings, Secrets: this.Secrets}, this._Key));
+		window['localStorage'].setItem('passworth', this.Serialize());
 	},
 	HasStoredData: function()
 	{
@@ -393,12 +394,6 @@ CreateDatabase.prototype = {
 };
 
 // Interface auxiliary
-var SetText = function(Element, Message)
-{
-	Element.innerHTML = '';
-	Element.appendChild(document.createTextNode(Message));
-}
-
 var Element = 
 {
 	Expander: function(Label, Items)
@@ -432,11 +427,15 @@ var Element =
 		Out.appendChild(RightCell);
 		return Out;
 	},
+	Title: function(Message)
+	{
+		var Out = document.createElement('h1');
+		Out.appendChild(document.createTextNode(Message));
+		return Out;
+	},
 	BodyTitle: function(Message)
 	{
-		var Item = document.createElement('h1');
-		Item.appendChild(document.createTextNode(Message));
-		return this.BodyRow([], [Item]);
+		return this.BodyRow([], [this.Title(Message)]);
 	},
 	Text: function(Message)
 	{
@@ -448,11 +447,28 @@ var Element =
 	{
 		return this.BodyRow([], [this.Text(Message)]);
 	},
-	Error: function(Message)
+	Notification: function(Message)
 	{
 		var Out = document.createElement('p');
-		Out.className = 'Error';
-		Out.appendChild(document.createTextNode(Message));
+		Out.className = 'Notification';
+		Out.Set = function(Message)
+		{
+			Out.className = 'Notification';
+			Out.innerHTML = '';
+			Out.appendChild(document.createTextNode(Message));
+		};
+		Out.SetError = function(Message)
+		{
+			Out.className = 'Notification Error';
+			Out.innerHTML = '';
+			Out.appendChild(document.createTextNode(Message));
+		};
+		Out.SetSuccess = function(Message)
+		{
+			Out.className = 'Notification Success';
+			Out.innerHTML = '';
+			Out.appendChild(document.createTextNode(Message));
+		};
 		return Out;
 	},
 	Login: function(Optional)
@@ -621,6 +637,44 @@ var Element =
 		};
 		return Out;
 	},
+	BodySecret: function(Label)
+	{
+		var Div = document.createElement('div');
+		Div.className = 'Input';
+		var Entry = document.createElement('input');
+		Entry.type = 'password';
+		Div.appendChild(Entry);
+		var Out = this.BodyRow([document.createTextNode(Label)], [Div]);
+		Out.GetValue = function() { return Entry.value; };
+		return Out;
+	},
+	BodyFile: function(Label, Optional)
+	{
+		var Out = document.createElement('div');
+		Out.className = 'Input';
+		var Selector = document.createElement('input');
+		Selector.type = 'file';
+		if ('Action' in Optional)
+			Selector.onchange = function(Event)
+			{
+				if (Selector.files.length >= 1)
+					Optional.Action(Selector.files[0]);
+			};
+		Out.appendChild(Selector);
+		return this.BodyRow([document.createTextNode(Label)], [Out]);
+	},
+	BodyToggle: function(Label, Value)
+	{
+		var Div = document.createElement('div');
+		Div.className = 'Input';
+		var Entry = document.createElement('input');
+		Entry.type = 'checkbox';
+		Entry.checked = Value;
+		Div.appendChild(Entry);
+		var Out = this.BodyRow([document.createTextNode(Label)], [Div]);
+		Out.GetValue = function() { return Entry.checked; };
+		return Out;
+	},
 	Navigation: function()
 	{
 		var Out = document.createElement('td');
@@ -717,8 +771,8 @@ function ShowHistoryPage(Database, MainPageContext, Secret)
 			ShowSecretPage(Database, MainPageContext, Secret);
 		}
 	}));
+	MainPageContext.Navigation.appendChild(Element.Title('History'));
 
-	MainPageContext.Body.appendChild(Element.BodyTitle('History'));
 	MainPageContext.Body.appendChild(Element.BodyText('Click on a record to restore the indicated value.'));
 	var LastIndex = 0;
 	var FirstRecordNode;
@@ -845,6 +899,116 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 	]));
 }
 
+function ShowImportPage(Database, MainPageContext)
+{
+	MainPageContext.Clear();
+	MainPageContext.Navigation.appendChild(Element.Button('Back', {
+		Action: function() { ShowMainPage(Database, MainPageContext); }
+	}));
+	MainPageContext.Navigation.appendChild(Element.Title('Import'));
+
+	var ImportNotification = Element.Notification();
+	MainPageContext.Body.appendChild(ImportNotification);
+	var ImportData;
+	MainPageContext.Body.appendChild(Element.BodyFile('Select Database', {
+		Action: function(File)
+		{
+			ImportNotification.Set('Reading...');
+			var Reader = new FileReader();
+			Reader.onerror = function()
+			{
+				ImportNotification.SetError('Could not open file.  Check that you are permitted to read the file.');
+			};
+			Reader.onload = function()
+			{
+				ImportData = Reader.result;
+				ImportNotification.SetSuccess('File ready to import.');
+			};
+			Reader.readAsText(File, 'utf-8');
+		}
+	}));
+	var ImportSecret = Element.BodySecret('Imported Database Secret');
+	MainPageContext.Body.appendChild(ImportSecret);
+	MainPageContext.Body.appendChild(Element.BodyRow([], [
+		Element.Button('Import', {
+			Action: function()
+			{
+				if (!ImportData)
+				{
+					ImportNotification.SetError('You must first select a file to import.');
+					return;
+				}
+				var Deserialized = Database.Deserialize(ImportData, ImportSecret.GetValue());
+				if (!Deserialized)
+				{
+					ImportNotification.SetError('Either your password was incorrect or the selected file is invalid.');
+					return;
+				}
+				Database.Merge(Deserialized);
+				ImportNotification.SetSuccess('Import successful.');
+			}
+		})
+	]));
+}
+
+function ShowSettingsPage(Database, MainPageContext)
+{
+	MainPageContext.Clear();
+	MainPageContext.Navigation.appendChild(Element.Button('Back', {
+		Action: function() { ShowMainPage(Database, MainPageContext); }
+	}));
+	MainPageContext.Navigation.appendChild(Element.Title('Settings'));
+
+	MainPageContext.Body.appendChild(Element.BodyTitle('Change Database Secret'));
+	var DatabaseSecretNotification = Element.Notification();
+	var OldDatabaseSecret = Element.BodySecret('Current Secret');
+	var NewDatabaseSecret1 = Element.BodySecret('New Secret');
+	var NewDatabaseSecret2 = Element.BodySecret('Confirm New Secret');
+	MainPageContext.Body.appendChild(Element.BodyRow([], [DatabaseSecretNotification]));
+	MainPageContext.Body.appendChild(OldDatabaseSecret);
+	MainPageContext.Body.appendChild(NewDatabaseSecret1);
+	MainPageContext.Body.appendChild(NewDatabaseSecret2);
+	MainPageContext.Body.appendChild(Element.BodyRow([], [
+		Element.Button('Change', {
+			Action: function()
+			{
+				if (OldDatabaseSecret.value !== Database.Settings.Secret)
+				{
+					DatabaseSecretNotification.SetError('Current Secret is incorrect.');
+					return;
+				}
+				if (NewDatabaseSecret1.value !== NewDatabaseSecret2.value)
+				{
+					DatabaseSecretNotification.SetError('New Secret and Confirm New Secret do not match.');
+					return;
+				}
+				Database.SetSecret(NewDatabaseSecret1.value);
+				DatabaseSecretNotification.Set('Database secret successfully changed.');
+			}
+		})
+	]));
+
+	MainPageContext.Body.appendChild(Element.BodyTitle('Preferences'));
+	var MergeSettings = Element.BodyToggle('Merge settings from imported data', Database.Settings.MergeSettings);
+	MainPageContext.Body.appendChild(MergeSettings);
+	var ShowDeleted = Element.BodyToggle('Show deleted secrets', Database.Settings.ShowDeleted);
+	MainPageContext.Body.appendChild(ShowDeleted);
+	MainPageContext.Body.appendChild(Element.BodyRow([], [
+		Element.Button('OK', {
+			Action: function()
+			{
+				Database.Settings.MergeSettings = MergeSettings.GetValue();
+				Database.Settings.ShowDeleted = ShowDeleted.GetValue();
+				ShowMainPage(Database, MainPageContext);
+			}
+		}),
+		Element.Button('Close', {
+			Action: function() { ShowMainPage(Database, MainPageContext); }
+		})
+	]));
+
+}
+
 function ShowMainPage(Database, MainPageContext)
 {
 	if (!MainPageContext) 
@@ -875,9 +1039,28 @@ function ShowMainPage(Database, MainPageContext)
 			ShowSecretPage(Database, MainPageContext, NewSecret); 
 		}
 	}));
-	MainPageContext.Navigation.appendChild(Element.Button('Export', {}));
-	MainPageContext.Navigation.appendChild(Element.Button('Import', {}));
-	MainPageContext.Navigation.appendChild(Element.Button('Settings', {}));
+	MainPageContext.Navigation.appendChild(Element.ExpanderButton('Export', {
+		Action: function()
+		{
+			var Out = document.createElement('a');
+			Out.download = 'PasswordDatabase.passworth';
+			Out.href = 'data:applicatin/passworth;charset=utf-8,' + encodeURIComponent(Database.Serialize());
+			Out.appendChild(document.createTextNode('Save'));
+			return Out;
+		}
+	}));
+	MainPageContext.Navigation.appendChild(Element.Button('Import', {
+		Action: function(File)
+		{
+			ShowImportPage(Database, MainPageContext);
+		}
+	}));
+	MainPageContext.Navigation.appendChild(Element.Button('Settings', {
+		Action: function()
+		{
+			ShowSettingsPage(Database, MainPageContext);
+		}
+	}));
 
 	var Secrets = [];
 	Database.ViewTree.Elements.forEach(function(TreeNode)
@@ -888,7 +1071,7 @@ function ShowMainPage(Database, MainPageContext)
 				Action: function() { ShowSecretPage(Database, MainPageContext, TreeNode); }
 			}));
 		}
-		else
+		else if (!Database.Settings.ShowDeletedSecrets || (TreeNode.Title !== 'Deleted'))
 		{
 			var CategorySecrets = [];
 			TreeNode.Elements.forEach(function(TreeLeaf)
@@ -925,8 +1108,7 @@ function ShowSetupPage()
 
 function ShowLoginPage()
 {
-	var Error = Element.Error('');
-	Error.style.display = 'none';
+	var Error = Element.Notification();
 	ShowPage(Page.Title([
 		Element.Login({
 			Action: function(Value)
@@ -934,8 +1116,7 @@ function ShowLoginPage()
 				var Database = new CreateDatabase(Value);
 				if (!Database.Restore())
 				{
-					SetText(Error, 'Invalid password.');
-					Error.style.display = '';
+					Error.SetError('Invalid password.');
 					return;
 				}
 
