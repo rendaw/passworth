@@ -704,3 +704,4 @@ function ComparePasswords(Expected, Got)
 	if (Result !== 'plaintext')
 		throw 'PlainText: ' + Result + ', expected: plaintext';
 })();
+
