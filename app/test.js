@@ -705,3 +705,17 @@ function ComparePasswords(Expected, Got)
 		throw 'PlainText: ' + Result + ', expected: plaintext';
 })();
 
+// Default values
+(function()
+{
+	var Good = 4;
+	var Result;
+	Result = Default(Good, 5);
+	if (Result !== 4) throw 'Set var default: ' + Result;
+	var Bad1;
+	Result = Default(Bad1, 5);
+	if (Result !== 5) throw 'Unset var default: ' + Result;
+	Result = Default(window.localStorage.getItem('Invalid'), 5);
+	if (Result !== 5) throw 'Local storage default: ' + Result;
+})();
+

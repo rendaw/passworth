@@ -3,35 +3,55 @@
 // Elements only have classes to disambiguate themselves from other elements of the same type in the div/block
 
 // Auxiliary
+function Default(Input, DefaultValue)
+{ 
+	'use strict';
+	return !Input ? DefaultValue : Input; 
+}
+
 function Timestamp(Basis)
 {
+	'use strict';
 	if (!Basis) Basis = new Date();
 	return Basis.getTime();
 }
 
 function NativeToUTF8(Input) 
 { 
+	'use strict';
 	return unescape(encodeURIComponent(Input)); 
 }
 
 function UTF8ToNative(Input) 
 { 
+	'use strict';
 	return decodeURIComponent(escape(Input)); 
 }
 
+function Local(Raw)
+{
+	// Requires a translation to be loaded into Local.Translations.
+	'use strict';
+	var Translation = Local.Translations[Raw];
+	if (Translation) return Translation;
+	return 'UNT[' + Raw + ']';
+};
+
 function CreateSortedArray(KeyAccessor)
 {
+	'use strict';
 	this.Elements = [];
 	this.Accessor = KeyAccessor;
 }
 CreateSortedArray.prototype = {
 	PlaceOneByKey: function(NewElement, Key)
 	{
+		'use strict';
 		var Temp = { Key: Key, Data: NewElement };
 		for (var Index = 0; Index < this.Elements.length; Index += 1)
 		{
 			var ElementKey = this.Accessor(this.Elements[Index]);
-			if (ElementKey == Temp.Key) return;
+			if (ElementKey === Temp.Key) return;
 			if (ElementKey < Temp.Key) continue;
 
 			var Temp2 = { Key: this.Accessor(this.Elements[Index]), Data: this.Elements[Index] };
@@ -42,15 +62,17 @@ CreateSortedArray.prototype = {
 	},
 	PlaceOne: function(NewElement)
 	{
+		'use strict';
 		this.PlaceOneByKey(NewElement, this.Accessor(NewElement));
 	},
 	RemoveOneByKey: function(Key)
 	{
+		'use strict';
 		var Deleted = false;
 		for (var Index = 0; Index < this.Elements.length; Index += 1)
 		{
 			var Element = this.Elements[Index];
-			if (!Deleted && (this.Accessor(Element) == Key))
+			if (!Deleted && (this.Accessor(Element) === Key))
 				Deleted = true;
 			else if (Deleted)
 				this.Elements[Index - 1] = Element;
@@ -60,19 +82,22 @@ CreateSortedArray.prototype = {
 	},
 	RemoveOne: function(OldElement)
 	{
+		'use strict';
 		this.RemoveOneByKey(this.Accessor(OldElement));
 	},
 	ReplaceOne: function(OldKey, Element)
 	{
-		if (this.Accessor(Element) == OldKey) return;
+		'use strict';
+		if (this.Accessor(Element) === OldKey) return;
 		this.RemoveOneByKey(OldKey);
 		this.PlaceOne(Element);
 	},
 	Get: function(Key)
 	{
+		'use strict';
 		for (var Index = 0; Index < this.Elements.length; Index += 1)
 		{
-			if (this.Accessor(this.Elements[Index]) == Key) return this.Elements[Index];
+			if (this.Accessor(this.Elements[Index]) === Key) return this.Elements[Index];
 		}
 		return null;
 	}
@@ -80,6 +105,7 @@ CreateSortedArray.prototype = {
 
 function CreateSecret(Loaded)
 {
+	'use strict';
 	if (!Loaded)
 	{
 		var Now = new Date();
@@ -97,7 +123,7 @@ function CreateSecret(Loaded)
 			History: []
 		};
 	}
-	this.ID = Loaded.ID;;
+	this.ID = Loaded.ID;
 	this.Title = Loaded.Title;
 	this.TitleDate = Loaded.TitleDate;
 	this.Category = Loaded.Category;
@@ -110,22 +136,23 @@ function CreateSecret(Loaded)
 CreateSecret.prototype = {
 	Modify: function(Modifications)
 	{
+		'use strict';
 		for (var Name in Modifications)
 		{
 			var Modification = Modifications[Name];
-			if (Name == 'Title')
+			if (Name === 'Title')
 			{
 				this.History.push({ Name: Name, Value: this.Title, Date: this.TitleDate});
 				this.Title = Modification.Value;
 				this.TitleDate = Modification.Date;
 			}
-			else if (Name == 'Category')
+			else if (Name === 'Category')
 			{
 				this.History.push({ Name: Name, Value: this.Category, Date: this.CategoryDate});
 				this.Category = Modification.Value;
 				this.CategoryDate = Modification.Date;
 			}
-			else if (Name == 'Notes')
+			else if (Name === 'Notes')
 			{
 				this.History.push({ Name: Name, Value: this.Notes, Date: this.NotesDate});
 				this.Notes = Modification.Value;
@@ -143,6 +170,7 @@ CreateSecret.prototype = {
 	},
 	Merge: function(Secret)
 	{
+		'use strict';
 		// Merge the history
 		var HistoryMatches = true;
 		var NewHistory = [];
@@ -153,9 +181,9 @@ CreateSecret.prototype = {
 			var Record = this.History[Index];
 			var MergeRecord = Secret.History[MergeIndex];
 
-			if ((Record.Date != MergeRecord.Date) || 
-				(Record.Name != MergeRecord.Name) ||
-				(Record.Value != MergeRecord.Value)) 
+			if ((Record.Date !== MergeRecord.Date) || 
+				(Record.Name !== MergeRecord.Name) ||
+				(Record.Value !== MergeRecord.Value)) 
 			{
 				HistoryMatches = false;
 				if (Record.Date <= MergeRecord.Date)
@@ -183,17 +211,17 @@ CreateSecret.prototype = {
 				var Record = Base.History[Index];
 
 				// If the current values for the mergee exist in the base's history, subsume them.
-				if ((Record.Name == 'Title') && (Mergee.TitleDate == Record.Date) && (Mergee.Title == Record.Value))
+				if ((Record.Name === 'Title') && (Mergee.TitleDate === Record.Date) && (Mergee.Title === Record.Value))
 				{
 					Mergee.TitleDate = Base.TitleDate;
 					Mergee.Title = Base.Title;
 				}
-				if ((Record.Name == 'Category') && (Mergee.CategoryDate == Record.Date) && (Mergee.Category == Record.Value))
+				if ((Record.Name === 'Category') && (Mergee.CategoryDate === Record.Date) && (Mergee.Category === Record.Value))
 				{
 					Mergee.CategoryDate = Base.CategoryDate;
 					Mergee.Category = Base.Category;
 				}
-				if ((Record.Name == 'Notes') && (Mergee.NotesDate == Record.Date) && (Mergee.Notes == Record.Value))
+				if ((Record.Name === 'Notes') && (Mergee.NotesDate === Record.Date) && (Mergee.Notes === Record.Value))
 				{
 					Mergee.NotesDate = Base.NotesDate;
 					Mergee.Notes = Base.Notes;
@@ -201,7 +229,7 @@ CreateSecret.prototype = {
 				
 				for (var Name in Mergee.Present)
 				{
-					if ((Record.Name == Name) && (Mergee.Present[Name].Date == Record.Date) && (Mergee.Present[Name].Value == Record.Value))
+					if ((Record.Name === Name) && (Mergee.Present[Name].Date === Record.Date) && (Mergee.Present[Name].Value === Record.Value))
 					{
 						Mergee.Present[Name].Date = Base.Present[Name].Date;
 						Mergee.Present[Name].Value = Base.Present[Name].Value;
@@ -220,19 +248,19 @@ CreateSecret.prototype = {
 		// Merge post-historic values
 		var Modifications = {};
 
-		if (this.Title != Secret.Title)
+		if (this.Title !== Secret.Title)
 		{
 			if (this.TitleDate < Secret.TitleDate)
 				Modifications.Title = {Date: Secret.TitleDate, Value: Secret.Title};
 			else this.History.push({Name: 'Title', Value: Secret.Title, Date: Secret.TitleDate});
 		}
-		if (this.Category != Secret.Category)
+		if (this.Category !== Secret.Category)
 		{
 			if (this.CategoryDate < Secret.CategoryDate)
 				Modifications.Category = { Date: Secret.CategoryDate, Value: Secret.Category };
 			else this.History.push({Name: 'Category', Value: Secret.Category, Date: Secret.CategoryDate});
 		}
-		if (this.Notes != Secret.Notes)
+		if (this.Notes !== Secret.Notes)
 		{
 			if (this.NotesDate < Secret.NotesDate)
 				Modifications.Notes = { Value: Secret.Notes, Date: Secret.NotesDate };
@@ -246,7 +274,7 @@ CreateSecret.prototype = {
 			else
 			{
 				var Property = this.Present[Name];
-				if (Property.Value != MergeProperty.Value)
+				if (Property.Value !== MergeProperty.Value)
 				{
 					if (Property.Date < MergeProperty.Date)
 						Modifications[Name] = MergeProperty;
@@ -261,6 +289,7 @@ CreateSecret.prototype = {
 
 function GenerateKey(Secret, Salt)
 {
+	'use strict';
 	if (!Salt) Salt = sjcl.random.randomWords(2, 0);
 	var SecretBytes = sjcl.codec.utf8String.toBits(NativeToUTF8(Secret));
 	var Key = sjcl.misc.pbkdf2(SecretBytes, Salt, 1000).slice(0, 8);
@@ -271,10 +300,15 @@ function GenerateKey(Secret, Salt)
 	};
 }
 
-function GetLetter(Title) { return Title.split('', 1)[0]; }
+function GetLetter(Title) 
+{ 
+	'use strict';
+	return Title.split('', 1)[0]; 
+}
 
 function CreateDatabase(Secret)
 {
+	'use strict';
 	this.Settings = {
 		Secret: Secret,
 		MergeSettings: false,
@@ -288,6 +322,7 @@ CreateDatabase.prototype =
 {
 	Serialize: function()
 	{
+		'use strict';
 		// Encrypt
 		var SecretData = { Settings: this.Settings, Secrets: this.Secrets };
 		var IV = sjcl.random.randomWords(4, 0);
@@ -305,6 +340,7 @@ CreateDatabase.prototype =
 	},
 	Deserialize: function(StorageData, Secret)
 	{
+		'use strict';
 		try 
 		{
 			var Outer = JSON.parse(StorageData);
@@ -325,14 +361,17 @@ CreateDatabase.prototype =
 	},
 	Store: function()
 	{
+		'use strict';
 		window['localStorage'].setItem('passworth', this.Serialize());
 	},
 	HasStoredData: function()
 	{
+		'use strict';
 		return !!window['localStorage'].getItem('passworth');
 	},
 	Restore: function()
 	{
+		'use strict';
 		var LocalData = window['localStorage'].getItem('passworth');
 		var OldMergeSettings = this.Settings.MergeSettings;
 		this.Settings.MergeSettings = true;
@@ -342,12 +381,14 @@ CreateDatabase.prototype =
 	},
 	SetSecret: function(NewSecret)
 	{
+		'use strict';
 		this.Settings.Secret = NewSecret;
 		this._RegenerateKey();
 		this.Store();
 	},
 	Merge: function(Data, DataSecret)
 	{
+		'use strict';
 		var ResultString = this.Deserialize(Data, DataSecret);
 		if (!ResultString) return false;
 		var Result = JSON.parse(ResultString);
@@ -370,22 +411,24 @@ CreateDatabase.prototype =
 	},
 	_DisplaySecret: function(Secret, OldCategory, OldTitle)
 	{
+		'use strict';
 		this.Secrets[Secret.ID] = Secret;
+		var Category;
 
 		// Remove the password from the tree if its sort data has changed
-		if (Secret.Category && ((Secret.Category != OldCategory) || (Secret.Title != OldTitle)))
+		if (Secret.Category && ((Secret.Category !== OldCategory) || (Secret.Title !== OldTitle)))
 		{
-			var Category = this.ViewTree.Get(OldCategory);
+			Category = this.ViewTree.Get(OldCategory);
 			if (Category)
 			{
 				Category.RemoveOneByKey(OldTitle);
-				if (Category.Elements.length == 0)
+				if (Category.Elements.length === 0)
 				{
 					this.ViewTree.RemoveOneByKey(OldCategory);
 				}
 			}
 		}
-		else if (!Secret.Category && (Secret.Title != OldTitle))
+		else if (!Secret.Category && (Secret.Title !== OldTitle))
 		{
 			this.ViewTree.RemoveOneByKey(OldTitle);
 		}
@@ -393,7 +436,7 @@ CreateDatabase.prototype =
 		// (Re)situate the password in the tree. 
 		if (Secret.Category)
 		{
-			var Category = this.ViewTree.Get(Secret.Category);
+			Category = this.ViewTree.Get(Secret.Category);
 			if (!Category) 
 			{
 				Category = new CreateSortedArray(this.ViewTree.Accessor);
@@ -410,6 +453,7 @@ CreateDatabase.prototype =
 	},
 	UpdateSecret: function(Secret, Modifications)
 	{
+		'use strict';
 		var OldCategory = Secret.Category;
 		var OldTitle = Secret.Title;
 		Secret.Modify(Modifications);
@@ -423,6 +467,7 @@ var Element =
 {
 	Expander: function(Label, Items)
 	{
+		'use strict';
 		var Out = document.createElement('div');
 		Out.className = 'Expander';
 		var Expansion = document.createElement('div');
@@ -431,7 +476,7 @@ var Element =
 		var Button = this.Button(Label, {
 			Action: function()
 			{
-				if (Expansion.className == 'Expansion Hidden')
+				if (Expansion.className === 'Expansion Hidden')
 					Expansion.className = 'Expansion Visible';
 				else 
 					Expansion.className = 'Expansion Hidden';
@@ -443,6 +488,7 @@ var Element =
 	},
 	BodyRow: function(Left, Right)
 	{
+		'use strict';
 		var Out = document.createElement('tr');
 		var LeftCell = document.createElement('td');
 		Left.forEach(function(Item) { LeftCell.appendChild(Item); });
@@ -454,26 +500,31 @@ var Element =
 	},
 	Title: function(Message)
 	{
+		'use strict';
 		var Out = document.createElement('h1');
 		Out.appendChild(document.createTextNode(Message));
 		return Out;
 	},
 	BodyTitle: function(Message)
 	{
+		'use strict';
 		return this.BodyRow([], [this.Title(Message)]);
 	},
 	Text: function(Message)
 	{
+		'use strict';
 		var Out = document.createElement('p');
 		Out.appendChild(document.createTextNode(Message));
 		return Out;
 	},
 	BodyText: function(Message)
 	{
+		'use strict';
 		return this.BodyRow([], [this.Text(Message)]);
 	},
 	Notification: function(Message)
 	{
+		'use strict';
 		var Out = document.createElement('p');
 		Out.className = 'Notification';
 		Out.Set = function(Message)
@@ -498,6 +549,7 @@ var Element =
 	},
 	Login: function(Optional)
 	{
+		'use strict';
 		var Out = document.createElement('div');
 		Out.className = 'Input';
 		var Entry = document.createElement('input');
@@ -512,15 +564,33 @@ var Element =
 			{
 				Event = Event || window.event;
 				var Code = Event.keyCode || Event.which;
-				if (Code == 13)
+				if (Code === 13)
 					Action.click();
 			};
 		}
 		Out.appendChild(Action);
 		return Out;
 	},
+	List: function(Label, Choices, Optional)
+	{
+		'use strict';
+		var Out = document.createElement('div');
+		Out.className = 'Input';
+		Out.appendChild(document.createTextNode(Label));
+		var Select = document.createElement('select');
+		for (var ChoiceIndex = 0; ChoiceIndex < Choices.length; ChoiceIndex += 1)
+		{
+			var Choice = document.createElement('option');
+			Choice.value = Choices[ChoiceIndex].Internal;
+			Choice.appendChild(document.createTextNode(Choices[ChoiceIndex].External));
+			Select.appendChild(Choice);
+		}
+		Out.appendChild(Select);
+		return Out;
+	},
 	Button: function(Label, Optional)
 	{
+		'use strict';
 		var Out = document.createElement('div');
 		Out.className = 'Input';
 		if ('Sublabel' in Optional)
@@ -538,6 +608,7 @@ var Element =
 	},
 	ExpanderButton: function(Label, Optional)
 	{
+		'use strict';
 		var Out = document.createElement('div');
 		Out.className = 'Input';
 		var Expansion = document.createElement('div');
@@ -545,7 +616,7 @@ var Element =
 		var Button = this.Button(Label, {
 			Action: function()
 			{
-				if (Expansion.className == 'Expansion Hidden')
+				if (Expansion.className === 'Expansion Hidden')
 				{
 					var ExpansionContents;
 					if ('Action' in Optional)
@@ -567,11 +638,13 @@ var Element =
 	},
 	BodyTitleEntry: function(Label, Value, Optional)
 	{
+		'use strict';
 		Optional.Title = true;
 		return this.BodyEntry(Label, Value, Optional);
 	},
 	BodyEntry: function(Label, Value, Optional)
 	{
+		'use strict';
 		var Out = document.createElement('div');
 		Out.className = 'Input';
 		var Input = document.createElement('input');
@@ -597,11 +670,11 @@ var Element =
 			}
 			else 
 			{
-				if ((Input.value.length > 35) && (Input.tagName == 'INPUT'))
+				if ((Input.value.length > 35) && (Input.tagName === 'INPUT'))
 				{
 					Input = document.createElement('textarea');
 				}
-				else if ((Input.value.length < 20) && (Input.tagName == 'TEXTAREA'))
+				else if ((Input.value.length < 20) && (Input.tagName === 'TEXTAREA'))
 				{
 					Input = document.createElement('input');
 					Input.type = 'text';
@@ -618,7 +691,7 @@ var Element =
 				Input.selectionEnd = OldInput.selectionEnd;
 				Input.onkeyup = OldInput.onkeyup;
 			}
-		}
+		};
 		Input.onkeyup = function(Event)
 		{
 			ReplaceInput();
@@ -630,6 +703,7 @@ var Element =
 	},
 	BodyEntryButton: function(Value, Optional)
 	{
+		'use strict';
 		var Left = document.createElement('div');
 		Left.className = 'Input';
 		var Input = document.createElement('input');
@@ -642,7 +716,7 @@ var Element =
 					Input.className = '';
 				else if (!Input.className && !Optional.Valid(TrimmedValue))
 					Input.className = 'Error';
-			}
+			};
 		if ('Action' in Optional)
 			Action.onclick = function() { 
 				var TrimmedValue = Input.value.trim();
@@ -666,6 +740,7 @@ var Element =
 	},
 	BodySecret: function(Label)
 	{
+		'use strict';
 		var Div = document.createElement('div');
 		Div.className = 'Input';
 		var Entry = document.createElement('input');
@@ -677,6 +752,7 @@ var Element =
 	},
 	BodyFile: function(Label, Optional)
 	{
+		'use strict';
 		var Out = document.createElement('div');
 		Out.className = 'Input';
 		var Selector = document.createElement('input');
@@ -692,6 +768,7 @@ var Element =
 	},
 	BodyToggle: function(Label, Value)
 	{
+		'use strict';
 		var Div = document.createElement('div');
 		Div.className = 'Input';
 		var Entry = document.createElement('input');
@@ -704,6 +781,7 @@ var Element =
 	},
 	Jump: function(Name)
 	{
+		'use strict';
 		var Out = document.createElement('a');
 		Out.href = '#' + encodeURIComponent(Name);
 		Out.appendChild(document.createTextNode(Name));
@@ -711,6 +789,7 @@ var Element =
 	},
 	Landing: function(Name)
 	{
+		'use strict';
 		var Out = document.createElement('a');
 		Out.name = Name;
 		Out.appendChild(document.createTextNode(Name));
@@ -718,13 +797,45 @@ var Element =
 	},
 	Navigation: function(Name)
 	{
+		'use strict';
 		var Out = document.createElement('td');
 		return Out;
 	},
 	Body: function()
 	{
+		'use strict';
 		var Out = document.createElement('tbody');
 		return Out;
+	}
+};
+
+var Block = 
+{
+	LanguageList: function()
+	{
+		return Element.List(Local('Language'), 
+		[
+			{ External: Local('English'), Internal: 'translation_en.js' }
+		], 
+		{
+			Action: function(Selection)
+			{
+				document.getElementByID('Language').src = Selection;
+			}
+		});
+	},
+	ThemeList: function()
+	{
+		return Element.List(Local('Theme'), 
+		[
+			{ External: Local('Orange'), Internal: 'theme_orange.css' }
+		], 
+		{
+			Action: function(Selection)
+			{
+				document.getElementByID('Theme').href = Selection;
+			}
+		});
 	}
 };
 
@@ -732,6 +843,7 @@ var Page =
 {
 	Title: function(Body)
 	{
+		'use strict';
 		var Out = document.createDocumentFragment();
 		for (var ElementIndex = 0; ElementIndex < Body.length; ElementIndex++) 
 			Out.appendChild(Body[ElementIndex]);
@@ -739,10 +851,11 @@ var Page =
 	},
 	Main: function(Navigation, Body, Optional)
 	{
+		'use strict';
 		var NavigationBlockBody2 = document.createElement('tr');
 		NavigationBlockBody2.appendChild(Navigation);
 		var Logout = document.createElement('td');
-		var LogoutButton = Element.Button('Logout', {
+		var LogoutButton = Element.Button(Local('Logout'), {
 			Action: function() { if ('Logout' in Optional) Optional['Logout'](); }
 		});
 		NavigationBlockBody2.appendChild(LogoutButton);
@@ -763,40 +876,21 @@ var Page =
 // Pages
 function DetermineAndShowInitialPage()
 {
-	sjcl.random.startCollectors();
-	var MeetsRequirements = (function ()
+	'use strict';
+	var LocalData = window.localStorage.getItem('passworth');
+	if (!LocalData)
 	{
-		try 
-		{
-			return 'localStorage' in window && window['localStorage'] !== null &&
-				JSON;
-		} 
-		catch (Error) 
-		{
-			return false;
-		}
-	})();
-
-	if (!MeetsRequirements)
-	{
-		ShowNotSupportedPage();
+		ShowSetupPage();
 	}
 	else
 	{
-		var LocalData = window['localStorage'].getItem('passworth');
-		if (!LocalData)
-		{
-			ShowSetupPage();
-		}
-		else
-		{
-			ShowLoginPage();
-		}
+		ShowLoginPage();
 	}
 }
 
 function ShowPage(Body)
 {
+	'use strict';
 	document.body.innerHTML = '';
 	Body.forEach(function (Element) { document.body.appendChild(Element); });
 	if (document.getElementById('Focus'))
@@ -805,73 +899,78 @@ function ShowPage(Body)
 
 function ShowHistoryPage(Database, MainPageContext, Secret)
 {
+	'use strict';
 	MainPageContext.Clear();
-	MainPageContext.Navigation.appendChild(Element.Button('Back', {
+	MainPageContext.Navigation.appendChild(Element.Button(Local('Back'), {
 		Action: function()
 		{
 			ShowSecretPage(Database, MainPageContext, Secret);
 		}
 	}));
-	MainPageContext.Navigation.appendChild(Element.Title('History'));
+	MainPageContext.Navigation.appendChild(Element.Title(Local('History')));
 
-	var Now = Timestamp(); // Date calculations are all in UTC
-	var HourLength = 1000 * 60 * 60;
-	var DayLength = HourLength * 24;
-	var WeekLength = DayLength * 7;
-	var MonthLength = DayLength * 30;
-	var YearLength = DayLength * 365;
-	var GetDateCategory = function(RecordDate)
+	var GetDateCategory = (function()
 	{
-		var Difference = Now - RecordDate;
-		var Base = new Date(Now);
-		Base.setHours(0, 0, 0, 0);
-		var Today = Base.getTime();
-		if (RecordDate > Today)
-		{
-			if (Difference < HourLength) return { Text: 'Recent', Short: true };
-			if (Difference < 2 * HourLength) return { Text: '1 hour ago', Short: true };
-			if (Difference < 3 * HourLength) return { Text: '2 hours ago', Short: true };
-			return { Text: 'Earlier today', Short: true };
-		}
+		var Now = Timestamp(); // Date calculations are all in UTC
+		var HourLength = 1000 * 60 * 60;
+		var DayLength = HourLength * 24;
+		var WeekLength = DayLength * 7;
+		var MonthLength = DayLength * 30;
+		var YearLength = DayLength * 365;
 
-		var WeekOffset = Base.getDay() - 1;
-		if (WeekOffset == -1) WeekOffset = 6;
-		Base.setDate(Base.getDate() - WeekOffset);
-		var ThisWeek = Base.getTime();
-
-		Base.setDate(0);
-		var ThisMonth = Base.getTime();
-		if (RecordDate > ThisMonth)
+		return function(RecordDate)
 		{
-			if (RecordDate > ThisWeek)
+			var Difference = Now - RecordDate;
+			var Base = new Date(Now);
+			Base.setHours(0, 0, 0, 0);
+			var Today = Base.getTime();
+			if (RecordDate > Today)
 			{
-				if (RecordDate > Today - DayLength) return { Text: 'Yesterday', Short: true };
-				return { Text: 'Earlier this week', Short: false };
+				if (Difference < HourLength) return { Text: Local('Recent'), Short: true };
+				if (Difference < 2 * HourLength) return { Text: Local('1 hour ago'), Short: true };
+				if (Difference < 3 * HourLength) return { Text: Local('2 hours ago'), Short: true };
+				return { Text: Local('Earlier today'), Short: true };
 			}
-			if (RecordDate > ThisWeek - WeekLength) return { Text: 'Last week', Short: false };
-			return { Text: 'Earlier this month', Short: false };
-		}
-			
-		var LastMonth;
-		if (Base.getMonth() > 0) LastMonth = Base.setMonth(Base.getMonth() - 1);
-		Base.SetMonth(0);
-		var ThisYear = Base.getTime();
-		if (RecordDate > ThisYear)
-		{
-			if (LastMonth && (RecordDate > LastMonth)) return { Text: 'Last month', Short: false };
-			return { Text: 'Earlier this year', Short: false };
-		}
 
-		Base.setFullYear(Base.getFullYear() - 1);
-		var LastYear = Base.getTime();
+			var WeekOffset = Base.getDay() - 1;
+			if (WeekOffset === -1) WeekOffset = 6;
+			Base.setDate(Base.getDate() - WeekOffset);
+			var ThisWeek = Base.getTime();
 
-		if (RecordDate > LastYear) 
-			return { Text: 'Last year', Short: false };
+			Base.setDate(0);
+			var ThisMonth = Base.getTime();
+			if (RecordDate > ThisMonth)
+			{
+				if (RecordDate > ThisWeek)
+				{
+					if (RecordDate > Today - DayLength) return { Text: Local('Yesterday'), Short: true };
+					return { Text: Local('Earlier this week'), Short: false };
+				}
+				if (RecordDate > ThisWeek - WeekLength) return { Text: Local('Last week'), Short: false };
+				return { Text: Local('Earlier this month'), Short: false };
+			}
+				
+			var LastMonth;
+			if (Base.getMonth() > 0) LastMonth = Base.setMonth(Base.getMonth() - 1);
+			Base.SetMonth(0);
+			var ThisYear = Base.getTime();
+			if (RecordDate > ThisYear)
+			{
+				if (LastMonth && (RecordDate > LastMonth)) return { Text: Local('Last month'), Short: false };
+				return { Text: Local('Earlier this year'), Short: false };
+			}
 
-		return { Text: 'Years ago', Short: false };
-	};
+			Base.setFullYear(Base.getFullYear() - 1);
+			var LastYear = Base.getTime();
 
-	MainPageContext.Body.appendChild(Element.BodyText('Click on a record to restore the indicated value.'));
+			if (RecordDate > LastYear) 
+				return { Text: Local('Last year'), Short: false };
+
+			return { Text: Local('Years ago'), Short: false };
+		};
+	})();
+
+	MainPageContext.Body.appendChild(Element.BodyText(Local('Click on a record to restore the indicated value.')));
 
 	var FirstRecordElement;
 	var LastIndex = Secret.History.length - 1;
@@ -920,10 +1019,11 @@ function ShowHistoryPage(Database, MainPageContext, Secret)
 
 function ShowSecretPage(Database, MainPageContext, Secret)
 {
+	'use strict';
 	var Modifications = {};
 
 	MainPageContext.Clear();
-	MainPageContext.Navigation.appendChild(Element.ExpanderButton('Delete', {
+	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('Delete'), {
 		Action: function()
 		{
 			return Element.Button('Confirm', {
@@ -935,12 +1035,12 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 			});
 		}
 	}));
-	MainPageContext.Navigation.appendChild(Element.ExpanderButton('History', {
+	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('History'), {
 		Action: function()
 		{
 			if (Object.keys(Modifications).length >= 1)
 			{
-				return Element.Button('Discard Changes', {
+				return Element.Button(Local('Discard Changes'), {
 					Action: function()
 					{
 						ShowHistoryPage(Database, MainPageContext, Secret);
@@ -952,13 +1052,13 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 		}
 	}));
 
-	MainPageContext.Body.appendChild(Element.BodyTitleEntry('Title', Secret.Title, {
+	MainPageContext.Body.appendChild(Element.BodyTitleEntry(Local('Title'), Secret.Title, {
 		Action: function(Value) { Modifications.Title = {Value: Value, Date: Timestamp()}; }
 	}));
-	MainPageContext.Body.appendChild(Element.BodyEntry('Category', Secret.Category, {
+	MainPageContext.Body.appendChild(Element.BodyEntry(Local('Category'), Secret.Category, {
 		Action: function(Value) { Modifications.Category = {Value: Value, Date: Timestamp()}; }
 	}));
-	MainPageContext.Body.appendChild(Element.BodyEntry('Notes', Secret.Notes, {
+	MainPageContext.Body.appendChild(Element.BodyEntry(Local('Notes'), Secret.Notes, {
 		Action: function(Value) { Modifications.Notes = {Value: Value, Date: Timestamp()}; }
 	}));
 
@@ -970,7 +1070,7 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 		}));
 	}
 
-	var AddValueButton = Element.BodyEntryButton('Password 2', {
+	var AddValueButton = Element.BodyEntryButton(Local('Password 2'), {
 		Valid: function(Value)
 		{
 			if (!Value) return false;
@@ -989,19 +1089,19 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 	MainPageContext.Body.appendChild(AddValueButton);
 
 	MainPageContext.Body.appendChild(Element.BodyRow([], [
-		Element.Button('Save', {
+		Element.Button(Local('Save'), {
 			Action: function()
 			{
 				Database.UpdateSecret(Secret, Modifications);
 				Modifications = {};
 			}
 		}),
-		Element.ExpanderButton('Close', {
+		Element.ExpanderButton(Local('Close'), {
 			Action: function()
 			{
 				if (Object.keys(Modifications).length >= 1)
 				{
-					return Element.Button('Discard Changes', {
+					return Element.Button(Local('Discard Changes'), {
 						Action: function()
 						{
 							ShowMainPage(Database, MainPageContext);
@@ -1017,51 +1117,52 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 
 function ShowImportPage(Database, MainPageContext)
 {
+	'use strict';
 	MainPageContext.Clear();
-	MainPageContext.Navigation.appendChild(Element.Button('Back', {
+	MainPageContext.Navigation.appendChild(Element.Button(Local('Back'), {
 		Action: function() { ShowMainPage(Database, MainPageContext); }
 	}));
-	MainPageContext.Navigation.appendChild(Element.Title('Import'));
+	MainPageContext.Navigation.appendChild(Element.Title(Local('Import')));
 
 	var ImportNotification = Element.Notification();
 	MainPageContext.Body.appendChild(ImportNotification);
 	var ImportData;
-	MainPageContext.Body.appendChild(Element.BodyFile('Select Database', {
+	MainPageContext.Body.appendChild(Element.BodyFile(Local('Select Database'), {
 		Action: function(File)
 		{
-			ImportNotification.Set('Reading...');
+			ImportNotification.Set(Local('Reading...'));
 			var Reader = new FileReader();
 			Reader.onerror = function()
 			{
-				ImportNotification.SetError('Could not open file.  Check that you are permitted to read the file.');
+				ImportNotification.SetError(Local('Could not open file.  Check that you are permitted to read the file.'));
 			};
 			Reader.onload = function()
 			{
 				ImportData = Reader.result;
-				ImportNotification.SetSuccess('File ready to import.');
+				ImportNotification.SetSuccess(Local('File ready to import.'));
 			};
 			Reader.readAsText(File, 'utf-8');
 		}
 	}));
-	var ImportSecret = Element.BodySecret('Imported Database Secret');
+	var ImportSecret = Element.BodySecret(Local('Imported Database Secret'));
 	MainPageContext.Body.appendChild(ImportSecret);
 	MainPageContext.Body.appendChild(Element.BodyRow([], [
-		Element.Button('Import', {
+		Element.Button(Local('Import'), {
 			Action: function()
 			{
 				if (!ImportData)
 				{
-					ImportNotification.SetError('You must first select a file to import.');
+					ImportNotification.SetError(Local('You must first select a file to import.'));
 					return;
 				}
 				var Deserialized = Database.Deserialize(ImportData, ImportSecret.GetValue());
 				if (!Deserialized)
 				{
-					ImportNotification.SetError('Either your password was incorrect or the selected file is invalid.');
+					ImportNotification.SetError(Local('Either your password was incorrect or the selected file is invalid.'));
 					return;
 				}
 				Database.Merge(Deserialized);
-				ImportNotification.SetSuccess('Import successful.');
+				ImportNotification.SetSuccess(Local('Import successful.'));
 			}
 		})
 	]));
@@ -1069,45 +1170,46 @@ function ShowImportPage(Database, MainPageContext)
 
 function ShowSettingsPage(Database, MainPageContext)
 {
+	'use strict';
 	MainPageContext.Clear();
-	MainPageContext.Navigation.appendChild(Element.Button('Back', {
+	MainPageContext.Navigation.appendChild(Element.Button(Local('Back'), {
 		Action: function() { ShowMainPage(Database, MainPageContext); }
 	}));
-	MainPageContext.Navigation.appendChild(Element.Title('Settings'));
+	MainPageContext.Navigation.appendChild(Element.Title(Local('Settings')));
 
-	MainPageContext.Body.appendChild(Element.BodyTitle('Change Database Secret'));
+	MainPageContext.Body.appendChild(Element.BodyTitle(Local('Change Database Secret')));
 	var DatabaseSecretNotification = Element.Notification();
-	var OldDatabaseSecret = Element.BodySecret('Current Secret');
-	var NewDatabaseSecret1 = Element.BodySecret('New Secret');
-	var NewDatabaseSecret2 = Element.BodySecret('Confirm New Secret');
+	var OldDatabaseSecret = Element.BodySecret(Local('Current Secret'));
+	var NewDatabaseSecret1 = Element.BodySecret(Local('New Secret'));
+	var NewDatabaseSecret2 = Element.BodySecret(Local('Confirm New Secret'));
 	MainPageContext.Body.appendChild(Element.BodyRow([], [DatabaseSecretNotification]));
 	MainPageContext.Body.appendChild(OldDatabaseSecret);
 	MainPageContext.Body.appendChild(NewDatabaseSecret1);
 	MainPageContext.Body.appendChild(NewDatabaseSecret2);
 	MainPageContext.Body.appendChild(Element.BodyRow([], [
-		Element.Button('Change', {
+		Element.Button(Local('Change'), {
 			Action: function()
 			{
 				if (OldDatabaseSecret.value !== Database.Settings.Secret)
 				{
-					DatabaseSecretNotification.SetError('Current Secret is incorrect.');
+					DatabaseSecretNotification.SetError(Local('Current Secret is incorrect.'));
 					return;
 				}
 				if (NewDatabaseSecret1.value !== NewDatabaseSecret2.value)
 				{
-					DatabaseSecretNotification.SetError('New Secret and Confirm New Secret do not match.');
+					DatabaseSecretNotification.SetError(Local('New Secret and Confirm New Secret do not match.'));
 					return;
 				}
 				Database.SetSecret(NewDatabaseSecret1.value);
-				DatabaseSecretNotification.Set('Database secret successfully changed.');
+				DatabaseSecretNotification.Set(Local('Database secret successfully changed.'));
 			}
 		})
 	]));
 
-	MainPageContext.Body.appendChild(Element.BodyTitle('Preferences'));
-	var MergeSettings = Element.BodyToggle('Merge settings from imported data', Database.Settings.MergeSettings);
+	MainPageContext.Body.appendChild(Element.BodyTitle(Local('Preferences')));
+	var MergeSettings = Element.BodyToggle(Local('Merge settings from imported data'), Database.Settings.MergeSettings);
 	MainPageContext.Body.appendChild(MergeSettings);
-	var ShowDeleted = Element.BodyToggle('Show deleted secrets', Database.Settings.ShowDeleted);
+	var ShowDeleted = Element.BodyToggle(Local('Show deleted secrets'), Database.Settings.ShowDeleted);
 	MainPageContext.Body.appendChild(ShowDeleted);
 	MainPageContext.Body.appendChild(Element.BodyRow([], [
 		Element.Button('OK', {
@@ -1118,7 +1220,7 @@ function ShowSettingsPage(Database, MainPageContext)
 				ShowMainPage(Database, MainPageContext);
 			}
 		}),
-		Element.Button('Close', {
+		Element.Button(Local('Close'), {
 			Action: function() { ShowMainPage(Database, MainPageContext); }
 		})
 	]));
@@ -1127,6 +1229,7 @@ function ShowSettingsPage(Database, MainPageContext)
 
 function ShowMainPage(Database, MainPageContext)
 {
+	'use strict';
 	if (!MainPageContext) 
 	{
 		MainPageContext = 
@@ -1147,31 +1250,31 @@ function ShowMainPage(Database, MainPageContext)
 		}));
 	}
 	else MainPageContext.Clear();
-	MainPageContext.Navigation.appendChild(Element.Button('Create', {
+	MainPageContext.Navigation.appendChild(Element.Button(Local('Create'), {
 		Action: function() 
 		{ 
 			var NewSecret = new CreateSecret();
-			NewSecret.Title = 'New Secret';
+			NewSecret.Title = Local('New Secret');
 			ShowSecretPage(Database, MainPageContext, NewSecret); 
 		}
 	}));
-	MainPageContext.Navigation.appendChild(Element.ExpanderButton('Export', {
+	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('Export'), {
 		Action: function()
 		{
 			var Out = document.createElement('a');
 			Out.download = 'PasswordDatabase.passworth';
 			Out.href = 'data:application/passworth;charset=utf-8,' + encodeURIComponent(Database.Serialize());
-			Out.appendChild(document.createTextNode('Save'));
+			Out.appendChild(document.createTextNode(Local('Save')));
 			return Out;
 		}
 	}));
-	MainPageContext.Navigation.appendChild(Element.Button('Import', {
+	MainPageContext.Navigation.appendChild(Element.Button(Local('Import'), {
 		Action: function(File)
 		{
 			ShowImportPage(Database, MainPageContext);
 		}
 	}));
-	MainPageContext.Navigation.appendChild(Element.Button('Settings', {
+	MainPageContext.Navigation.appendChild(Element.Button(Local('Settings'), {
 		Action: function()
 		{
 			ShowSettingsPage(Database, MainPageContext);
@@ -1183,7 +1286,7 @@ function ShowMainPage(Database, MainPageContext)
 	var LastLetter;
 	Database.ViewTree.Elements.forEach(function(TreeNode)
 	{
-		if (GetLetter(TreeNode.Title) != LastLetter)
+		if (GetLetter(TreeNode.Title) !== LastLetter)
 		{
 			LastLetter = GetLetter(TreeNode.Title);
 			SecretLetters.push(Element.Jump(LastLetter));
@@ -1212,13 +1315,15 @@ function ShowMainPage(Database, MainPageContext)
 
 function ShowNotSupportedPage()
 {
+	'use strict';
 	ShowPage(Page.Title([
-		Element.Error('You need a browser that supports localStorage, JSON for this application to work.')
+		Element.Error(Local('You need a browser that supports localStorage, JSON for this application to work.'))
 	]));
 };
 
 function ShowSetupPage()
 {
+	'use strict';
 	ShowPage(Page.Title([
 		Element.Login({
 			Action: function(Value) 
@@ -1226,13 +1331,15 @@ function ShowSetupPage()
 				ShowMainPage(new CreateDatabase(Value));
 			}
 		}),
-		Element.Text('Welcome to Passworth.  Enter a new password above to initialize your password database.'),
-		//Element.List('Language', [{External: 'English', Internal: 'en'}])
+		Element.Text(Local('Welcome to Passworth.  Enter a new password above to initialize your password database.')),
+		Block.LanguageList(),
+		Block.ThemeList()
 	]));
 };
 
 function ShowLoginPage()
 {
+	'use strict';
 	var Error = Element.Notification();
 	ShowPage(Page.Title([
 		Element.Login({
@@ -1249,8 +1356,55 @@ function ShowLoginPage()
 			}
 		}),
 		Error,
-		Element.Text('Enter your database password above.')
+		Element.Text(window.Local('Enter your database password above.')),
+		Block.LanguageList(),
+		Block.ThemeList()
 	]));
 };
 
-window.onload = DetermineAndShowInitialPage;
+window.onload = function()
+{
+	var MeetsRequirements = (function ()
+	{
+		try 
+		{
+			return ('localStorage' in window) && (window.localStorage !== null) &&
+				JSON;
+		} 
+		catch (Error) 
+		{
+			return false;
+		}
+	})();
+	
+	sjcl.random.startCollectors();
+
+	if (!MeetsRequirements)
+	{
+		ShowNotSupportedPage();
+	}
+	else
+	{
+		var Head = document.getElementsByTagName('head')[0];
+
+		var Language = document.createElement('script');
+		Language.type = 'text/javascript';
+		Language.id = 'Language';
+		Language.src = Default(window.localStorage.getItem('LanguageSetting'), 'translation_en.js');
+		Head.appendChild(Language);
+
+		var Theme = document.createElement('link');
+		Theme.rel = 'stylesheet';
+		Theme.type = 'text/css';
+		Theme.id = 'Theme';
+		Theme.href = Default(window.localStorage.getItem('ThemeSetting'), 'theme_orange.css');
+		Head.appendChild(Theme);
+
+		Language.onload = function()
+		{
+			// Don't load until localization routine exists
+			DetermineAndShowInitialPage();
+		};
+	}
+};
+
