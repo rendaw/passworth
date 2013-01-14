@@ -28,6 +28,12 @@ function UTF8ToNative(Input)
 	return decodeURIComponent(escape(Input)); 
 }
 
+function GetLetter(Title) 
+{ 
+	'use strict';
+	return Title.toLowerCase().split('', 1)[0]; 
+}
+
 function Local(Raw)
 {
 	// Requires a translation to be loaded into Local.Translations.
@@ -55,6 +61,7 @@ CreateSortedArray.prototype = {
 			if (ElementKey < Temp.Key) continue;
 
 			var Temp2 = { Key: this.Accessor(this.Elements[Index]), Data: this.Elements[Index] };
+			Temp2.DecasedKey = Temp2.Key;
 			this.Elements[Index] = Temp.Data;
 			Temp = Temp2;
 		}
@@ -300,12 +307,6 @@ function GenerateKey(Secret, Salt)
 	};
 }
 
-function GetLetter(Title) 
-{ 
-	'use strict';
-	return Title.split('', 1)[0]; 
-}
-
 function CreateDatabase(Secret)
 {
 	'use strict';
@@ -315,7 +316,7 @@ function CreateDatabase(Secret)
 		ShowDeleted: false
 	};
 	this.Secrets = {};
-	this.ViewTree = new CreateSortedArray(function(Element) { return Element.Title + Element.ID; });
+	this.ViewTree = new CreateSortedArray(function(Element) { return Element.Title.toLowerCase() + Element.ID; });
 	this._Key = GenerateKey(Secret);
 }
 CreateDatabase.prototype = 
@@ -465,27 +466,6 @@ CreateDatabase.prototype =
 // Interface auxiliary
 var Element = 
 {
-	Expander: function(Label, Items)
-	{
-		'use strict';
-		var Out = document.createElement('div');
-		Out.className = 'Expander';
-		var Expansion = document.createElement('div');
-		Expansion.className = 'Expansion Hidden';
-		Items.forEach(function(Item) { Expansion.appendChild(Item); });
-		var Button = this.Button(Label, {
-			Action: function()
-			{
-				if (Expansion.className === 'Expansion Hidden')
-					Expansion.className = 'Expansion Visible';
-				else 
-					Expansion.className = 'Expansion Hidden';
-			}
-		});
-		Out.appendChild(Button);
-		Out.appendChild(Expansion);
-		return Out;
-	},
 	BodyRow: function(Left, Right)
 	{
 		'use strict';
@@ -514,6 +494,13 @@ var Element =
 	{
 		'use strict';
 		var Out = document.createElement('p');
+		Out.appendChild(document.createTextNode(Message));
+		return Out;
+	},
+	Label: function(Message)
+	{
+		'use strict';
+		var Out = document.createElement('span');
 		Out.appendChild(document.createTextNode(Message));
 		return Out;
 	},
@@ -551,7 +538,6 @@ var Element =
 	{
 		'use strict';
 		var Out = document.createElement('div');
-		Out.className = 'Input';
 		var Entry = document.createElement('input');
 		Entry.type = 'password';
 		Entry.id = 'Focus';
@@ -575,7 +561,6 @@ var Element =
 	{
 		'use strict';
 		var Out = document.createElement('div');
-		Out.className = 'Input';
 		Out.appendChild(document.createTextNode(Label));
 		var Select = document.createElement('select');
 		for (var ChoiceIndex = 0; ChoiceIndex < Choices.length; ChoiceIndex += 1)
@@ -588,31 +573,41 @@ var Element =
 		Out.appendChild(Select);
 		return Out;
 	},
+	Download: function(Label, Filename, Data)
+	{
+		'use strict';
+		var Out = document.createElement('a');
+		Out.download = Filename;
+		Out.href = 'data:application/passworth;charset=utf-8,' + encodeURIComponent(Data);
+		Out.appendChild(document.createTextNode(Label));
+		return Out;
+	},
 	Button: function(Label, Optional)
 	{
 		'use strict';
-		var Out = document.createElement('div');
-		Out.className = 'Input';
+		var Action = document.createElement('a');
+		Action.className = 'Button';
+		if ('Action' in Optional)
+			Action.onclick = function() { Optional.Action(); };
 		if ('Sublabel' in Optional)
 		{
 			var Sublabel = document.createElement('p');
 			Sublabel.appendChild(document.createTextNode(Optional.Sublabel));
-			Out.appendChild(Sublabel);
+			Action.appendChild(Sublabel);
 		}
-		Out.appendChild(document.createTextNode(Label));
-		var Action = document.createElement('a');
-		if ('Action' in Optional)
-			Action.onclick = function() { Optional.Action(); };
-		Out.appendChild(Action);
-		return Out;
+		Action.appendChild(document.createTextNode(Label));
+		return Action;
 	},
 	ExpanderButton: function(Label, Optional)
 	{
 		'use strict';
 		var Out = document.createElement('div');
-		Out.className = 'Input';
+		Out.className = 'Button';
 		var Expansion = document.createElement('div');
 		Expansion.className = 'Expansion Hidden';
+		Out.appendChild(Expansion);
+		var Contents = document.createElement('div');
+		Contents.className = 'Contents';
 		var Button = this.Button(Label, {
 			Action: function()
 			{
@@ -622,18 +617,21 @@ var Element =
 					if ('Action' in Optional)
 						ExpansionContents = Optional.Action();
 					if (!ExpansionContents) return;
-					Expansion.appendChild(ExpansionContents);
+					ExpansionContents.forEach(function (ContentItem) 
+					{ 
+						Contents.appendChild(ContentItem); 
+					});
 					Expansion.className = 'Expansion Visible';
 				}
 				else 
 				{
-					Expansion.innerHTML = '';
+					Contents.innerHTML = '';
 					Expansion.className = 'Expansion Hidden';
 				}
 			}
 		});
-		Out.appendChild(Button);
-		Out.appendChild(Expansion);
+		Expansion.appendChild(Button);
+		Expansion.appendChild(Contents);
 		return Out;
 	},
 	BodyTitleEntry: function(Label, Value, Optional)
@@ -646,7 +644,6 @@ var Element =
 	{
 		'use strict';
 		var Out = document.createElement('div');
-		Out.className = 'Input';
 		var Input = document.createElement('input');
 		Input.type = 'text';
 		Input.value = Value;
@@ -699,13 +696,13 @@ var Element =
 				Optional.Action(this.value);
 		};
 		Out.appendChild(Input);
-		return Element.BodyRow([document.createTextNode(Label)], [Out]);
+		ReplaceInput();
+		return Element.BodyRow([Element.Label(Label)], [Out]);
 	},
 	BodyEntryButton: function(Value, Optional)
 	{
 		'use strict';
 		var Left = document.createElement('div');
-		Left.className = 'Input';
 		var Input = document.createElement('input');
 		var Action = document.createElement('a');
 		if ('Valid' in Optional)
@@ -742,7 +739,6 @@ var Element =
 	{
 		'use strict';
 		var Div = document.createElement('div');
-		Div.className = 'Input';
 		var Entry = document.createElement('input');
 		Entry.type = 'password';
 		Div.appendChild(Entry);
@@ -754,7 +750,6 @@ var Element =
 	{
 		'use strict';
 		var Out = document.createElement('div');
-		Out.className = 'Input';
 		var Selector = document.createElement('input');
 		Selector.type = 'file';
 		if ('Action' in Optional)
@@ -770,7 +765,6 @@ var Element =
 	{
 		'use strict';
 		var Div = document.createElement('div');
-		Div.className = 'Input';
 		var Entry = document.createElement('input');
 		Entry.type = 'checkbox';
 		Entry.checked = Value;
@@ -779,10 +773,17 @@ var Element =
 		Out.GetValue = function() { return Entry.checked; };
 		return Out;
 	},
+	JumpBox: function()
+	{
+		var Out = document.createElement('div');
+		Out.className = 'JumpBox';
+		return Out;
+	},
 	Jump: function(Name)
 	{
 		'use strict';
 		var Out = document.createElement('a');
+		Out.className = 'Jump';
 		Out.href = '#' + encodeURIComponent(Name);
 		Out.appendChild(document.createTextNode(Name));
 		return Out;
@@ -791,7 +792,9 @@ var Element =
 	{
 		'use strict';
 		var Out = document.createElement('a');
+		Out.className = 'Landing';
 		Out.name = Name;
+		Out.href = '#Top';
 		Out.appendChild(document.createTextNode(Name));
 		return Out;
 	},
@@ -852,13 +855,17 @@ var Page =
 	Main: function(Navigation, Body, Optional)
 	{
 		'use strict';
+		var Top = document.createElement('a');
+		Top.name = 'Top';
+
 		var NavigationBlockBody2 = document.createElement('tr');
 		NavigationBlockBody2.appendChild(Navigation);
 		var Logout = document.createElement('td');
 		var LogoutButton = Element.Button(Local('Logout'), {
 			Action: function() { if ('Logout' in Optional) Optional['Logout'](); }
 		});
-		NavigationBlockBody2.appendChild(LogoutButton);
+		Logout.appendChild(LogoutButton);
+		NavigationBlockBody2.appendChild(Logout);
 		var NavigationBlockBody1 = document.createElement('tbody');
 		NavigationBlockBody1.appendChild(NavigationBlockBody2);
 		var NavigationBlock = document.createElement('table');
@@ -869,7 +876,7 @@ var Page =
 		BodyBlock.className = 'Body';
 		BodyBlock.appendChild(Body);
 
-		return [NavigationBlock, BodyBlock];
+		return [Top, NavigationBlock, BodyBlock];
 	}
 };
 
@@ -892,7 +899,10 @@ function ShowPage(Body)
 {
 	'use strict';
 	document.body.innerHTML = '';
-	Body.forEach(function (Element) { document.body.appendChild(Element); });
+	var SubBody = document.createElement('div');
+	SubBody.id = 'SubBody';
+	Body.forEach(function (Element) { SubBody.appendChild(Element); });
+	document.body.appendChild(SubBody);
 	if (document.getElementById('Focus'))
 		document.getElementById('Focus').focus();
 }
@@ -994,7 +1004,7 @@ function ShowHistoryPage(Database, MainPageContext, Secret)
 		});
 	};
 
-	var Categories = [];
+	var Categories = Element.JumpBox();
 	var LastCategory;
 	var RecordElements = [];
 	for (var Index = Secret.History.length; Index > 0; Index -= 1)
@@ -1004,7 +1014,7 @@ function ShowHistoryPage(Database, MainPageContext, Secret)
 		if (CategoryInfo.Text !== LastCategory)
 		{
 			var CategoryJumpElement = Element.Jump(CategoryInfo.Text);
-			Categories.push(CategoryJumpElement);
+			Categories.appendChild(CategoryJumpElement);
 
 			var CategoryElement = Element.Landing(CategoryInfo.Text);
 			LastCategory = CategoryInfo.Text;
@@ -1014,7 +1024,7 @@ function ShowHistoryPage(Database, MainPageContext, Secret)
 		if (!FirstRecordElement) FirstRecordElement = RecordElement;
 		RecordElements.push(RecordElement);
 	}
-	MainPageContext.Body.appendChild(Element.BodyRow(Categories, RecordElements));
+	MainPageContext.Body.appendChild(Element.BodyRow([Categories], RecordElements));
 }
 
 function ShowSecretPage(Database, MainPageContext, Secret)
@@ -1023,16 +1033,27 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 	var Modifications = {};
 
 	MainPageContext.Clear();
-	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('Delete'), {
+	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('Close'), {
 		Action: function()
 		{
-			return Element.Button('Confirm', {
-				Action: function()
-				{
-					Database.UpdateSecret(Secret, {Name: 'Category', Value: 'Deleted', Date: newDate().getTime()});
-					ShowMainPage(Database, MainPageContext);
-				}
-			});
+			if (Object.keys(Modifications).length >= 1)
+			{
+				return [Element.Button(Local('Discard Changes'), {
+					Action: function()
+					{
+						ShowMainPage(Database, MainPageContext);
+					}
+				})];
+			}
+			ShowMainPage(Database, MainPageContext);
+			return null;
+		}
+	}));
+	MainPageContext.Navigation.appendChild(Element.Button(Local('Save'), {
+		Action: function()
+		{
+			Database.UpdateSecret(Secret, Modifications);
+			Modifications = {};
 		}
 	}));
 	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('History'), {
@@ -1040,15 +1061,27 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 		{
 			if (Object.keys(Modifications).length >= 1)
 			{
-				return Element.Button(Local('Discard Changes'), {
+				return [Element.Button(Local('Discard Changes'), {
 					Action: function()
 					{
 						ShowHistoryPage(Database, MainPageContext, Secret);
 					}
-				});
+				})];
 			}
 			ShowHistoryPage(Database, MainPageContext, Secret);
 			return null;
+		}
+	}));
+	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('Delete'), {
+		Action: function()
+		{
+			return [Element.Button('Confirm', {
+				Action: function()
+				{
+					Database.UpdateSecret(Secret, {Name: 'Category', Value: 'Deleted', Date: newDate().getTime()});
+					ShowMainPage(Database, MainPageContext);
+				}
+			})];
 		}
 	}));
 
@@ -1087,32 +1120,6 @@ function ShowSecretPage(Database, MainPageContext, Secret)
 		}
 	});
 	MainPageContext.Body.appendChild(AddValueButton);
-
-	MainPageContext.Body.appendChild(Element.BodyRow([], [
-		Element.Button(Local('Save'), {
-			Action: function()
-			{
-				Database.UpdateSecret(Secret, Modifications);
-				Modifications = {};
-			}
-		}),
-		Element.ExpanderButton(Local('Close'), {
-			Action: function()
-			{
-				if (Object.keys(Modifications).length >= 1)
-				{
-					return Element.Button(Local('Discard Changes'), {
-						Action: function()
-						{
-							ShowMainPage(Database, MainPageContext);
-						}
-					});
-				}
-				ShowMainPage(Database, MainPageContext);
-				return null;
-			}
-		})
-	]));
 }
 
 function ShowImportPage(Database, MainPageContext)
@@ -1261,11 +1268,7 @@ function ShowMainPage(Database, MainPageContext)
 	MainPageContext.Navigation.appendChild(Element.ExpanderButton(Local('Export'), {
 		Action: function()
 		{
-			var Out = document.createElement('a');
-			Out.download = 'PasswordDatabase.passworth';
-			Out.href = 'data:application/passworth;charset=utf-8,' + encodeURIComponent(Database.Serialize());
-			Out.appendChild(document.createTextNode(Local('Save')));
-			return Out;
+			return [Element.Download(Local('Save'), 'PasswordDatabase.passworth', Database.Serialize())];
 		}
 	}));
 	MainPageContext.Navigation.appendChild(Element.Button(Local('Import'), {
@@ -1282,14 +1285,14 @@ function ShowMainPage(Database, MainPageContext)
 	}));
 
 	var Secrets = [];
-	var SecretLetters = [];
+	var SecretLetters = Element.JumpBox();
 	var LastLetter;
 	Database.ViewTree.Elements.forEach(function(TreeNode)
 	{
 		if (GetLetter(TreeNode.Title) !== LastLetter)
 		{
 			LastLetter = GetLetter(TreeNode.Title);
-			SecretLetters.push(Element.Jump(LastLetter));
+			SecretLetters.appendChild(Element.Jump(LastLetter));
 			Secrets.push(Element.Landing(LastLetter));
 		}
 		if (!('Elements' in TreeNode))
@@ -1307,10 +1310,12 @@ function ShowMainPage(Database, MainPageContext)
 					Action: function() { ShowSecretPage(Database, MainPageContext, TreeLeaf); }
 				}));
 			});
-			Secrets.push(Element.Expander(TreeNode.Title, CategorySecrets));
+			Secrets.push(Element.ExpanderButton(TreeNode.Title, {
+				Action: function() { return CategorySecrets; }
+			}));
 		}
 	});
-	MainPageContext.Body.appendChild(Element.BodyRow(SecretLetters, Secrets));
+	MainPageContext.Body.appendChild(Element.BodyRow([SecretLetters], Secrets));
 };
 
 function ShowNotSupportedPage()

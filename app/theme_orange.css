@@ -1,6 +1,106 @@
-.Input a { display: inline-block; width: 40px; height: 40px; border: 1px solid black; }
-input { color: blue; }
-input.Error { color: red; }
+/* Fixing the basic display */
+* 
+{ 
+	margin: 0px; 
+	padding: 0px; 
+	position: relative; 
+	font-size: 1em; 
+	font-weight: normal; 
+	vertical-align: top; 
+	color: black; 
+	border: none;
+	background: none;
+	font-family: sans-serif;
+}
 
-div { margin: 4px; padding: 4px; border: 1px solid black; }
-Hidden { display: none; }
+a { text-decoration: none; }
+table { border-spacing: 0px; }
+td { vertical-align: top; }
+
+input, textarea { display: block; width: 100%; }
+
+div#SubBody { width: 640px; margin: auto; }
+
+/* Fonts */
+h2, .Title { font-size: 1.2em; }
+.Landing { font-size: 1.2em; }
+
+/* Multi-category element properties */
+.JumpBox { display: inline-block; margin: 40px; }
+.Jump { display: block; text-align: right; padding: 10px; }
+.Jump:nth-child(even) { background-color: rgb(251, 242, 243); }
+.Jump:hover { color: rgb(0, 0, 0); }
+
+/* Sections */
+table.Navigation { width: 100%; }
+.Navigation tr { background: url('../resources/headerbutton-background.svg') repeat-x right bottom; }
+.Navigation td+td { width: 100px; }
+.Navigation td > *, .Navigation .Expansion a
+{ 
+	display: inline-block; 
+	width: 100px;
+	height: 70px;
+	text-align: center;
+	vertical-align: top;
+}
+.Navigation td > *+*
+{
+	width: 101px;
+	margin-left: -1px;
+	background: url('../resources/button-separator.svg') no-repeat left top;
+}
+.Navigation td > *+* .Expansion
+{
+	position: absolute; 
+	top: 0px; 
+	z-index: 1000;
+	background: url('../resources/button-separator.svg') no-repeat left top,
+		white url('../resources/headerbutton-background.svg') no-repeat right bottom;
+}
+.Navigation .Expansion .Contents *
+{
+	background: none;
+}
+.Navigation .Expansion.Hidden .Contents 
+{ 
+	display: none; 
+}
+
+.Body { width: 100%; }
+.Body tr+tr td+td 
+{
+	background: url('../resources/row-separator.svg') no-repeat left 50px top;
+}
+
+.Body td:first-child { width: 35%; padding-left: 0px; text-align: right; }
+.Body td:first-child, .Body td:first-child * { color: rgb(117, 33, 45); }
+.Body td:first-child > * { display: block; padding: 15px 15px 15px 5px; }
+.Body td:first-child input { display: block; width: 100px; }
+
+.Body td+td { width: 65%; padding-left: 0px; padding-right: 0px; text-align: left; }
+
+.Body .Landing { display: block; padding: 40px 0px 20px 15px; }
+
+.Body td+td > * { display: block; padding: 15px 5px 15px 15px; }
+.Body .Expansion > a, .Body .Expansion > div > * 
+{ 
+	display: block; 
+	padding: 15px 0px 15px 10px; 
+	margin-left: -10px; 
+}
+.Body .Expansion > a
+{ 
+	/*background: url('../resources/category-marker.svg') no-repeat left bottom; */
+}
+.Body .Expansion > div
+{ 
+	/*background: 
+		url('../resources/category-bottom.svg') no-repeat left bottom,
+		url('../resources/category-middle.svg') repeat-y left top,
+		url('../resources/category-top.svg') no-repeat left top;*/
+}
+.Body td+td .Button+.Button
+{ 
+	background: url('../resources/row-separator.svg') no-repeat left 50px top;
+}
+
